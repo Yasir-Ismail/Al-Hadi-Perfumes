@@ -24,7 +24,7 @@
             baseNotes: "Vanilla, Musk",
             longevity: "7–9 hours",
             occasion: "Night wear, Dates, Events",
-            image: "assets/perfume_placeholder.jpg"
+            image: "assets/perfume-2.jpeg"
         },
         {
             id: 3,
@@ -37,7 +37,7 @@
             baseNotes: "Wood, Tonka Bean",
             longevity: "8–10 hours",
             occasion: "Winter, Formal, Power dressing",
-            image: "assets/perfume_placeholder.jpg"
+            image: "assets/perfume-3.jpeg"
         },
         {
             id: 4,
@@ -50,7 +50,7 @@
             baseNotes: "Musk, Light Woods",
             longevity: "6–8 hours",
             occasion: "Daily wear, Office, Summer",
-            image: "assets/perfume_placeholder.jpg"
+            image: "assets/perfume-4.jpeg"
         },
         {
             id: 5,
@@ -63,7 +63,7 @@
             baseNotes: "Amber, Oud",
             longevity: "8–9 hours",
             occasion: "Winter nights, Weddings",
-            image: "assets/perfume_placeholder.jpg"
+            image: "assets/perfume-5.jpeg"
         },
         {
             id: 6,
@@ -76,7 +76,7 @@
             baseNotes: "Amber, Musk",
             longevity: "7–9 hours",
             occasion: "Evening, Special occasions",
-            image: "assets/perfume_placeholder.jpg"
+            image: "assets/perfume-6.jpeg"
         },
         {
             id: 7,
@@ -89,7 +89,7 @@
             baseNotes: "Amberwood, Musk",
             longevity: "7–8 hours",
             occasion: "Night outs, Parties",
-            image: "assets/perfume_placeholder.jpg"
+            image: "assets/perfume-7.jpeg"
         },
         {
             id: 8,
@@ -102,7 +102,7 @@
             baseNotes: "Oakmoss, Musk",
             longevity: "7–9 hours",
             occasion: "Daily wear, Casual luxury",
-            image: "assets/perfume_placeholder.jpg"
+            image: "assets/perfume-8.jpeg"
         },
         {
             id: 9,
@@ -115,7 +115,7 @@
             baseNotes: "Amber, Musk",
             longevity: "6–8 hours",
             occasion: "Dates, Evening wear",
-            image: "assets/perfume_placeholder.jpg"
+            image: "assets/perfume-9.jpeg"
         },
         {
             id: 10,
