@@ -1,8 +1,383 @@
+// Shopping Cart State Management
+const ShoppingCart = {
+    items: [],
+
+    init() {
+        this.loadFromStorage();
+        this.createCartUI();
+        this.createCustomerDetailsModal();
+        this.updateCartBadge();
+    },
+
+    loadFromStorage() {
+        const saved = localStorage.getItem('alhadi_cart');
+        if (saved) {
+            try {
+                this.items = JSON.parse(saved);
+            } catch (e) {
+                this.items = [];
+            }
+        }
+    },
+
+    saveToStorage() {
+        localStorage.setItem('alhadi_cart', JSON.stringify(this.items));
+    },
+
+    addItem(productId, quantity = 1) {
+        const products = window.perfumeProducts || [];
+        const product = products.find(p => p.id === productId);
+
+        if (!product) return;
+
+        const existingItem = this.items.find(item => item.id === productId);
+
+        if (existingItem) {
+            existingItem.quantity += quantity;
+        } else {
+            this.items.push({
+                id: product.id,
+                name: product.name,
+                category: product.category,
+                price: product.price,
+                image: product.image,
+                quantity: quantity
+            });
+        }
+
+        this.saveToStorage();
+        this.updateCartBadge();
+        this.renderCart();
+        this.showCartNotification(product.name);
+    },
+
+    removeItem(productId) {
+        this.items = this.items.filter(item => item.id !== productId);
+        this.saveToStorage();
+        this.updateCartBadge();
+        this.renderCart();
+    },
+
+    updateQuantity(productId, newQuantity) {
+        const item = this.items.find(item => item.id === productId);
+        if (item) {
+            if (newQuantity <= 0) {
+                this.removeItem(productId);
+            } else {
+                item.quantity = newQuantity;
+                this.saveToStorage();
+                this.renderCart();
+            }
+        }
+    },
+
+    getTotal() {
+        return this.items.reduce((total, item) => {
+            const price = parseInt(item.price.replace(/[^\d]/g, ''));
+            return total + (price * item.quantity);
+        }, 0);
+    },
+
+    getItemCount() {
+        return this.items.reduce((count, item) => count + item.quantity, 0);
+    },
+
+    updateCartBadge() {
+        const badge = document.querySelector('.cart-badge');
+        const count = this.getItemCount();
+        if (badge) {
+            badge.textContent = count;
+            badge.style.display = count > 0 ? 'block' : 'none';
+        }
+    },
+
+    showCartNotification(productName) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: var(--gold-accent);
+            color: var(--primary-black);
+            padding: 15px 25px;
+            border-radius: 4px;
+            z-index: 10000;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        `;
+        notification.textContent = `Added to cart: ${productName}`;
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transition = 'opacity 0.3s';
+            setTimeout(() => notification.remove(), 300);
+        }, 2000);
+    },
+
+    createCartUI() {
+        const cartHTML = `
+            <div class="cart-overlay" id="cartOverlay"></div>
+            <div class="cart-modal" id="cartModal">
+                <div class="cart-header">
+                    <h3>Your Cart</h3>
+                    <button class="cart-close" id="cartClose">&times;</button>
+                </div>
+                <div class="cart-body" id="cartBody">
+                    <!-- Cart items will be rendered here -->
+                </div>
+                <div class="cart-footer">
+                    <div class="cart-total">
+                        <span class="cart-total-label">Total</span>
+                        <span class="cart-total-amount" id="cartTotal">PKR 0</span>
+                    </div>
+                    <button class="cart-checkout-btn" id="cartCheckout">Checkout on WhatsApp</button>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', cartHTML);
+
+        // Event listeners
+        document.getElementById('cartClose').addEventListener('click', () => this.closeCart());
+        document.getElementById('cartOverlay').addEventListener('click', () => this.closeCart());
+        document.getElementById('cartCheckout').addEventListener('click', () => this.checkout());
+
+        this.renderCart();
+    },
+
+    openCart() {
+        document.getElementById('cartModal').classList.add('active');
+        document.getElementById('cartOverlay').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    },
+
+    closeCart() {
+        document.getElementById('cartModal').classList.remove('active');
+        document.getElementById('cartOverlay').classList.remove('active');
+        document.body.style.overflow = '';
+    },
+
+    renderCart() {
+        const cartBody = document.getElementById('cartBody');
+        const cartTotal = document.getElementById('cartTotal');
+
+        if (this.items.length === 0) {
+            cartBody.innerHTML = `
+                <div class="cart-empty">
+                    <div class="cart-empty-icon">🛍️</div>
+                    <p>Your cart is empty</p>
+                </div>
+            `;
+            cartTotal.textContent = 'PKR 0';
+            return;
+        }
+
+        cartBody.innerHTML = this.items.map(item => `
+            <div class="cart-item">
+                <img src="${item.image}" alt="${item.name}" class="cart-item-img" 
+                     onerror="this.src='https://placehold.co/80x100/1a1a1a/C5A059?text=AL+HADI'">
+                <div class="cart-item-details">
+                    <div class="cart-item-name">${item.name}</div>
+                    <div class="cart-item-category">${item.category}</div>
+                    <div class="cart-item-price">${item.price}</div>
+                    <div class="cart-item-controls">
+                        <button class="cart-qty-btn" onclick="ShoppingCart.updateQuantity(${item.id}, ${item.quantity - 1})">−</button>
+                        <span class="cart-qty-display">${item.quantity}</span>
+                        <button class="cart-qty-btn" onclick="ShoppingCart.updateQuantity(${item.id}, ${item.quantity + 1})">+</button>
+                        <button class="cart-remove-btn" onclick="ShoppingCart.removeItem(${item.id})">Remove</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        cartTotal.textContent = `PKR ${this.getTotal().toLocaleString()}`;
+    },
+
+    checkout() {
+        if (this.items.length === 0) {
+            alert('Your cart is empty');
+            return;
+        }
+
+        // Close cart and open customer details modal
+        this.closeCart();
+        this.openCustomerDetailsModal('cart');
+    },
+
+    createCustomerDetailsModal() {
+        const modalHTML = `
+        <div class="modal fade luxury-modal" id="customerDetailsModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Complete Your Order</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="order-summary-box mb-4">
+                            <p class="small text-gold mb-1 text-uppercase tracking-widest">Order Summary</p>
+                            <h4 class="serif mb-2" id="modalOrderSummary">Cart Items</h4>
+                            <p class="mb-0" id="modalOrderTotal">Total: PKR 0</p>
+                        </div>
+                        
+                        <form id="customerDetailsForm">
+                            <div class="mb-3">
+                                <label class="form-label">Full Name *</label>
+                                <input type="text" class="form-control" id="customerName" placeholder="Enter your full name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Phone Number *</label>
+                                <input type="tel" class="form-control" id="customerPhone" placeholder="03XX XXXXXXX" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">City *</label>
+                                <input type="text" class="form-control" id="customerCity" placeholder="e.g. Lahore, Karachi" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Complete Address *</label>
+                                <textarea class="form-control" id="customerAddress" rows="2" placeholder="House/Flat #, Street, Area" required></textarea>
+                            </div>
+                            <div class="mb-0">
+                                <label class="form-label">Note (Optional)</label>
+                                <textarea class="form-control" id="customerNote" rows="2" placeholder="Any special instructions or notes"></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn-gold-fill w-100" id="submitCustomerDetails">Confirm & Send to WhatsApp</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        document.getElementById('submitCustomerDetails').addEventListener('click', () => this.submitOrder());
+    },
+
+    openCustomerDetailsModal(type, productData = null) {
+        // Store order type and data
+        this.currentOrderType = type;
+        this.currentProductData = productData;
+
+        // Update modal summary
+        if (type === 'cart') {
+            const itemCount = this.getItemCount();
+            document.getElementById('modalOrderSummary').textContent = `${itemCount} item${itemCount > 1 ? 's' : ''} in cart`;
+            document.getElementById('modalOrderTotal').textContent = `Total: PKR ${this.getTotal().toLocaleString()}`;
+        } else if (type === 'single' && productData) {
+            document.getElementById('modalOrderSummary').textContent = productData.name;
+            document.getElementById('modalOrderTotal').textContent = `Quantity: ${productData.qty} | Total: ${productData.price}`;
+        }
+
+        // Clear form
+        document.getElementById('customerName').value = '';
+        document.getElementById('customerPhone').value = '';
+        document.getElementById('customerCity').value = '';
+        document.getElementById('customerAddress').value = '';
+        document.getElementById('customerNote').value = '';
+
+        const modal = new bootstrap.Modal(document.getElementById('customerDetailsModal'));
+        modal.show();
+    },
+
+    submitOrder() {
+        // Validate form
+        const name = document.getElementById('customerName').value.trim();
+        const phone = document.getElementById('customerPhone').value.trim();
+        const city = document.getElementById('customerCity').value.trim();
+        const address = document.getElementById('customerAddress').value.trim();
+        const note = document.getElementById('customerNote').value.trim();
+
+        if (!name || !phone || !city || !address) {
+            alert('Please fill in all required fields:\n- Full Name\n- Phone Number\n- City\n- Complete Address');
+            return;
+        }
+
+        let message = '';
+
+        if (this.currentOrderType === 'cart') {
+            // Build cart order message
+            const itemsList = this.items.map((item, index) =>
+                `${index + 1}. ${item.name} – Qty: ${item.quantity} – ${item.price}`
+            ).join('\n');
+
+            const total = this.getTotal();
+
+            message = `*NEW ORDER (Multiple Products)*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Products:*
+${itemsList}
+
+*Total Amount: PKR ${total.toLocaleString()}*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*Customer Details:*
+Name: ${name}
+Phone: ${phone}
+City: ${city}
+Address: ${address}${note ? `\nNote: ${note}` : ''}
+
+_Please confirm this order. Thank you!_`;
+
+        } else if (this.currentOrderType === 'single' && this.currentProductData) {
+            // Build single product order message
+            message = `*NEW ORDER FROM AL-HADI WEBSITE*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+*Product:* ${this.currentProductData.name}
+*Quantity:* ${this.currentProductData.qty}
+*Total Price:* ${this.currentProductData.price}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*Customer Details:*
+Name: ${name}
+Phone: ${phone}
+City: ${city}
+Address: ${address}${note ? `\nNote: ${note}` : ''}
+
+_Please confirm my order. Thank you!_`;
+        }
+
+        const waLink = `https://wa.me/923096273676?text=${encodeURIComponent(message)}`;
+        window.location.href = waLink;
+
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('customerDetailsModal'));
+        if (modal) modal.hide();
+
+        // Clear cart if it was a cart order
+        if (this.currentOrderType === 'cart') {
+            setTimeout(() => {
+                this.items = [];
+                this.saveToStorage();
+                this.updateCartBadge();
+                this.renderCart();
+            }, 1000);
+        }
+    }
+};
+
+// Make ShoppingCart globally accessible
+window.ShoppingCart = ShoppingCart;
+
 // Use global products data from products.js
 (function () {
     const products = window.perfumeProducts || [];
 
     document.addEventListener('DOMContentLoaded', () => {
+        // Initialize Shopping Cart
+        ShoppingCart.init();
+
+        // Cart icon click handler
+        const cartIcon = document.querySelector('.cart-icon-wrapper');
+        if (cartIcon) {
+            cartIcon.addEventListener('click', () => ShoppingCart.openCart());
+        }
+
         // Navbar Scroll Effect
         const nav = document.getElementById('mainNav');
         if (nav) {
@@ -83,89 +458,44 @@
             }
         }
 
-        // Initialize Ordering Modal
-        initOrderModal();
+        // Contact Form WhatsApp Integration
+        initContactForm();
     });
 
-    function initOrderModal() {
-        const modalHtml = `
-        <div class="modal fade luxury-modal" id="orderModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Complete Your Order</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="order-summary-box">
-                            <p class="small text-gold mb-1 text-uppercase tracking-widest">Selected Essence</p>
-                            <h4 class="serif mb-0" id="modalProductName">Product Name</h4>
-                            <p class="mb-0 mt-2" id="modalProductDetails">Quantity: 1 | Total: PKR 0</p>
-                        </div>
-                        
-                        <form id="orderForm">
-                            <div class="mb-4">
-                                <label class="form-label">Full Name</label>
-                                <input type="text" class="form-control" id="userName" placeholder="Enter your name" required>
-                            </div>
-                            <div class="mb-4">
-                                <label class="form-label">Delivery City</label>
-                                <input type="text" class="form-control" id="userCity" placeholder="e.g. Lahore, Karachi" required>
-                            </div>
-                            <div class="mb-0">
-                                <label class="form-label">Phone Number (Optional)</label>
-                                <input type="tel" class="form-control" id="userPhone" placeholder="For delivery coordination">
-                            </div>
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn-cancel" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn-gold-fill w-100" onclick="window.submitOrderToWhatsApp()">Place Order on WhatsApp</button>
-                    </div>
-                </div>
-            </div>
-        </div>`;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-    }
+    function initContactForm() {
+        const contactForm = document.getElementById('contact-form');
+        if (contactForm) {
+            contactForm.addEventListener('submit', (e) => {
+                e.preventDefault();
 
-    let currentOrderData = {};
+                const name = contactForm.querySelector('input[name="fullname"]').value.trim();
+                const email = contactForm.querySelector('input[name="email"]').value.trim();
+                const inquiry = contactForm.querySelector('select').value;
+                const message = contactForm.querySelector('textarea[name="message"]').value.trim();
 
-    window.openOrderModal = (name, price, qty) => {
-        currentOrderData = { name, price, qty };
-        document.getElementById('modalProductName').innerText = name;
-        document.getElementById('modalProductDetails').innerText = `Quantity: ${qty} | Total: ${price}`;
+                if (!name || !email || !message) {
+                    alert('Please fill in all required fields.');
+                    return;
+                }
 
-        const modal = new bootstrap.Modal(document.getElementById('orderModal'));
-        modal.show();
-    };
+                const waMessage = encodeURIComponent(`*INQUIRY FROM AL-HADI WEBSITE*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    window.submitOrderToWhatsApp = () => {
-        const name = document.getElementById('userName').value.trim();
-        const city = document.getElementById('userCity').value.trim();
-        const phone = document.getElementById('userPhone').value.trim();
-
-        if (!name || !city) {
-            alert('Please fill in your name and city to proceed.');
-            return;
-        }
-
-        const message = encodeURIComponent(`*NEW ORDER FROM AL-HADI WEBSITE*
--------------------------------
-*Product:* ${currentOrderData.name}
-*Quantity:* ${currentOrderData.qty}
-*Total Price:* ${currentOrderData.price}
-
-*Customer Details:*
--------------------------------
 *Name:* ${name}
-*City:* ${city}
-${phone ? `*Phone:* ${phone}` : ''}
+*Email:* ${email}
+*Inquiry Type:* ${inquiry}
 
-_Please confirm my order. Thank you!_`);
+*Message:*
+${message}
 
-        const waLink = `https://wa.me/923096273676?text=${message}`;
-        window.location.href = waLink;
-    };
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+_Sent via AL HADI Contact Form_`);
+
+                const waLink = `https://wa.me/923096273676?text=${waMessage}`;
+                window.location.href = waLink;
+            });
+        }
+    }
 
     function renderProducts(items, container, colClass) {
         container.innerHTML = items.map(product => `
@@ -179,6 +509,7 @@ _Please confirm my order. Thank you!_`);
                     <h3 class="serif">${product.name}</h3>
                     <p class="product-price">${product.price}</p>
                     <a href="product-detail.html?id=${product.id}" class="btn-minimal">View Essence</a>
+                    <button class="btn-add-cart" onclick="ShoppingCart.addItem(${product.id}, 1)">Add to Cart</button>
                 </div>
             </div>
         </div>
@@ -190,14 +521,6 @@ _Please confirm my order. Thank you!_`);
 
     function renderProductDetail(product) {
         const detailContainer = document.getElementById('product-detail-container');
-        const waMessage = encodeURIComponent(`Hello Al-Hadi Perfumes, I would like to order:
-Product: ${product.name}
-Quantity: 1
-Price: ${product.price}
-
-Please let me know the next steps.`);
-
-        const waLink = `https://wa.me/923096273676?text=${waMessage}`;
 
         detailContainer.innerHTML = `
         <div class="row align-items-center gy-5">
@@ -243,7 +566,8 @@ Please let me know the next steps.`);
                             <input type="number" id="qty" value="1" min="1" readonly>
                             <button type="button" class="plus">+</button>
                         </div>
-                        <button type="button" id="btn-order-modal" class="whatsapp-btn-full border-0">Order on WhatsApp</button>
+                        <button type="button" id="btn-add-to-cart" class="btn-add-cart border-0 w-100 mb-2">Add to Cart</button>
+                        <button type="button" id="btn-order-now" class="whatsapp-btn-full border-0 w-100">Order Now</button>
                     </div>
                 </div>
             </div>
@@ -254,14 +578,29 @@ Please let me know the next steps.`);
         const qtyInput = document.getElementById('qty');
 
         const handleOrderClick = () => {
-            const val = qtyInput.value;
+            const val = parseInt(qtyInput.value);
             const basePrice = parseInt(product.price.replace(/[^\d]/g, ''));
             const totalPrice = `PKR ${(basePrice * val).toLocaleString()}`;
-            window.openOrderModal(product.name, totalPrice, val);
+
+            // Open customer details modal for single product
+            ShoppingCart.openCustomerDetailsModal('single', {
+                name: product.name,
+                qty: val,
+                price: totalPrice
+            });
         };
 
-        if (document.getElementById('btn-order-modal')) {
-            document.getElementById('btn-order-modal').addEventListener('click', handleOrderClick);
+        const handleAddToCart = () => {
+            const val = parseInt(qtyInput.value);
+            ShoppingCart.addItem(product.id, val);
+        };
+
+        if (document.getElementById('btn-order-now')) {
+            document.getElementById('btn-order-now').addEventListener('click', handleOrderClick);
+        }
+
+        if (document.getElementById('btn-add-to-cart')) {
+            document.getElementById('btn-add-to-cart').addEventListener('click', handleAddToCart);
         }
 
         if (document.querySelector('.plus')) {
